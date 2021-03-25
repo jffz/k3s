@@ -1,0 +1,62 @@
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  namespace: "{{ item.name }}"
+  name: "{{ item.name }}-ingress"
+spec:
+  rules:
+  - host: "sdbx.k3s.bidous.lan"
+    http:
+      paths:
+        {% for backend in item.backends %}
+        - backend:
+            serviceName: "{{ backend.servicename }}"
+            servicePort: "{{ backend.serviceport | default(80) }}"
+          path: "{{ backend.path | default('/') }}"
+        {% endfor %}
+
+        # - backend:
+        #     serviceName: "transmission-transmission-openvpn"
+        #     servicePort: 80
+        #   path: "/transmission"
+        # - backend:
+        #     serviceName: "sonarr"
+        #     servicePort: 80
+        #   path: "/sonarr"
+        # - backend:
+        #     serviceName: "jackett"
+        #     servicePort: 80
+        #   path: "/jackett"
+        # - backend:
+        #     serviceName: "radarr"
+        #     servicePort: 80
+        #   path: "/radarr"
+        # - backend:
+        #     serviceName: "plex-kube-plex"
+        #     servicePort: 32400
+        #   path: "/"
+  # - host: "sdbx.bidous.fr"
+  #   http:
+  #     paths:
+  #       - backend:
+  #           serviceName: "transmission-transmission-openvpn"
+  #           servicePort: 80
+  #         path: "/transmission"
+  #       - backend:
+  #           serviceName: "sonarr"
+  #           servicePort: 80
+  #         path: "/sonarr"
+  #       - backend:
+  #           serviceName: "jackett"
+  #           servicePort: 80
+  #         path: "/jackett"
+  #       - backend:
+  #           serviceName: "radarr"
+  #           servicePort: 80
+  #         path: "/radarr"
+  #       - backend:
+  #           serviceName: "plex-kube-plex"
+  #           servicePort: 32400
+          # path: "/"
+---

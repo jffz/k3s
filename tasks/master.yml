@@ -1,0 +1,79 @@
+---
+- name: Install/Upgrade K3S Master
+  shell: "curl -sfL https://get.k3s.io | sh -s -"
+  environment:
+    INSTALL_K3S_VERSION: "{{ install_k3s_version }}"
+    K3S_DATASTORE_ENDPOINT: "mysql://{{ k3s_db.user }}:{{ k3s_db.password }}@tcp({{ k3s_db.host }}:3306)/{{ k3s_db.name }}"
+    INSTALL_K3S_EXEC: "--tls-san={{ ansible_default_ipv4.address }} --tls-san={{ k3s_cluster_fqdn }} --cluster-domain={{ k3s_cluster_domain }} --no-deploy servicelb --resolv-conf=/etc/resolv.conf --no-deploy traefik"
+  when: (first_install or need_update) or (k3s_pids is defined and not k3s_pids|length>0)
+
+- name: Wait for node-token
+  wait_for:
+    path: /var/lib/rancher/k3s/server/node-token
+
+- name: Create kube directory
+  file:
+    path: "{{ k3s_network_storage }}"
+    state: directory
+
+- name: Copy node-token to nfs share
+  ansible.builtin.copy:
+    src: /var/lib/rancher/k3s/server/node-token
+    dest: "{{ k3s_network_storage }}/node-token"
+    remote_src: true
+
+- name: Register node-token file access mode
+  stat:
+    path: /var/lib/rancher/k3s/server
+
+- name: Change file access node-token
+  file:
+    path: /var/lib/rancher/k3s/server
+    mode: "g+rx,o+rx"
+
+- name: Create config dirs
+  file:
+    path: "{{ item }}/.kube"
+    state: directory
+  loop:
+    - "{{ k3s_network_storage }}/.kube"
+    - /root
+    - /home/pi
+
+- name: Copy config file to home and nfs
+  ansible.builtin.copy:
+    src: /etc/rancher/k3s/k3s.yaml
+    dest: "{{ item }}"
+    remote_src: true
+  loop:
+    - "{{ k3s_network_storage }}/.kube/config"
+    - /root/.kube/config
+    - /home/pi/.kube/config
+  ignore_errors: true
+  run_once: true
+
+- name: Point kubectl config to master node
+  replace:
+    path: "{{ k3s_network_storage }}/.kube/config"
+    regexp: 'https://127.0.0.1:6443'
+    replace: "{{ k3s_registration_url }}"
+
+# https://raw.githubusercontent.com/rancher/k3s/master/manifests/traefik.yaml
+# - name: Enable traefik UI
+#   template:
+#     src: traefik.yaml.j2
+    # dest: /var/lib/rancher/k3s/server/manifests/traefik.yaml
+
+- name: Configure namespaces
+  template:
+    src: namespaces.yaml.j2
+    dest: "/var/lib/rancher/k3s/server/manifests/namespace-{{ item }}.yaml"
+  loop: "{{ k3s_namespaces }}"
+
+- name: Deploy kube manifests
+  copy:
+    src: "{{ playbook_dir}}/roles/k3s/files/manifests/{{ item }}"
+    dest: "/var/lib/rancher/k3s/server/manifests/"
+  loop: 
+    - seedbox
+

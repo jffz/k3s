@@ -1,0 +1,33 @@
+---
+
+# - name: Symlink k3s to kubectl
+#   file:
+#     src: /usr/local/bin/k3s
+#     dest: /usr/local/bin/kubectl
+#     state: link
+    
+    #- name: Install kubectl
+    #  get_url:
+    #    url: https://storage.googleapis.com/kubernetes-release/release/v1.15.0/bin/linux/arm64/kubectl
+    #    dest: /usr/local/bin/kubectl
+    #    mode: 0755
+
+- name: Get kubectl alias
+  get_url:
+    url: https://raw.githubusercontent.com/ahmetb/kubectl-alias/master/.kubectl_aliases
+    dest: /root/.kubectl_aliases
+    owner: root
+    group: root
+    mode: 0755
+
+- name: Ensure aliases sourcing is present in bashrc
+  lineinfile:
+    path: /root/.bashrc
+    regexp: kubectl_aliases
+    line: "[ -f ~/.kubectl_aliases ] && source ~/.kubectl_aliases"
+
+- name: Add KUBECONFIG env to bashrc
+  lineinfile:
+    path: /root/.bashrc
+    regexp: KUBECONFIG
+    line: "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml"

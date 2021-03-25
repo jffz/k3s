@@ -1,0 +1,22 @@
+---
+# vars file for k3s
+install_k3s_version: v1.19.3+k3s2
+
+k3s_namespaces:
+  - domotique
+  - seedbox
+  - monitoring
+  - nfs-provisioner
+
+k3s_ingress:
+  namespaces:
+    - servicename: "transmission-openvpn"
+      path: "/transmission"
+    - servicename: "sonarr"
+      path: "/sonarr"
+    - servicename: "radarr"
+      path: "/radarr"
+    - servicename: "jackett"
+      path: "/jackett"
+    - servicename: "plex"
+      serviceport: 32400

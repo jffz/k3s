@@ -1,0 +1,5 @@
+---
+k3s_network_storage: "{{ nfs.mountpoint }}/k3s"
+usb:
+  zigbee: 0451:bef3
+  zwave: 0658:0200

@@ -1,0 +1,20 @@
+---
+- name: Check if zigbee key is plugged
+  shell: "lsusb | grep {{ usb.zigbee }}"
+  register: zigbee_plugged
+  ignore_errors: true
+
+- name: Check if zwave key is plugged
+  shell: "lsusb | grep {{ usb.zwave }}"
+  register: zwave_plugged
+  ignore_errors: true
+
+- name: Set node_labels
+  set_fact:
+    node_labels:
+      - "zigbee={{ zigbee_plugged.rc == 0 }}"
+      - "zwave={{ zwave_plugged.rc == 0 }}"
+
+- name: Configure node labels
+  command: "kubectl label node {{ ansible_nodename }} {{ item }} --overwrite"
+  loop: "{{ node_labels }}"

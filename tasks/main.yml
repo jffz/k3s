@@ -1,0 +1,82 @@
+---
+- name: Configure prereqs
+  include: prereqs.yml
+
+- name: install psutil
+  pip:
+    name: psutil
+
+- name: Install openvpn
+  apt:
+    name: openvpn
+
+- name: Check if k3s binary exists
+  stat:
+    path: /usr/local/bin/k3s
+  register: k3s_binary
+
+- name: Get k3s current version
+  shell: >
+    /usr/local/bin/k3s -v | awk {'print $3'} | sed 's/v//'
+  register: k3s_binary_version
+  when: k3s_binary.stat.exists
+
+- name: Check if its our first install
+  set_fact:
+    first_install: "{{ not k3s_binary.stat.exists }}"
+
+- name: Check if update is needed
+  set_fact:
+    need_update: not first_install and k3s_binary_version != install_k3s_version
+
+- name: Get k3s pid
+  pids:
+    name: k3s
+  register: k3s_pids
+  when: not first_install
+
+# https://github.com/rancher/k3s-upgrade
+# - name: Update k3s binary
+#   get_url:
+#     url: "https://github.com/rancher/k3s/releases/download/{{ k3s_version }}/k3s-armhf"
+#     dest: /usr/local/bin/k3s
+#     mode: 0755
+  # when: "not 'k3s_master' in group_names"
+
+- name: Run Agent tasks
+  include: agent.yml
+  when: "not 'k3s_master' in group_names"
+
+
+- name: Run Master tasks
+  include: master.yml
+  when: "'k3s_master' in group_names"
+
+
+- name: Copy kube config
+  synchronize:
+    src: "{{ nfs.mountpoint }}/k3s/.kube"
+    dest: "{{ item }}"
+    recursive: yes
+    mode: pull
+  loop:
+    - /home/pi
+    - /root
+  delegate_to: "{{ inventory_hostname }}"
+
+- name: Configure server endpoint for agent
+  replace:
+    path: "{{ item }}/.kube/config"
+    regexp: https:\/\/127\.0\.0\.1:6443
+    replace: "{{ k3s_registration_url }}"
+  loop:
+    - /home/pi
+    - /root
+  when: "not 'k3s_master' in group_names"
+
+- name: Run labels tasks
+  include: labels.yml
+  tags: k3s-labels
+
+- name: Configure Kube usage
+  include: tools.yml

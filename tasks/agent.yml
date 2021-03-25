@@ -1,0 +1,20 @@
+---
+- name: Retrieve k3s_token
+  slurp:
+    src: "{{ k3s_network_storage + '/node-token' }}"
+  register: k3s_token
+
+- name: Install/Upgrade K3S Agent
+  shell: "curl -sfL https://get.k3s.io | sh -s -"
+  environment:
+    INSTALL_K3S_VERSION: "{{ install_k3s_version }}"
+    K3S_URL: "{{ k3s_registration_url }}"
+    K3S_TOKEN: "{{ k3s_token.content | b64decode }}"
+  when: (first_install or need_update) or (k3s_pids is defined and not k3s_pids|length>0)
+
+- name: Enable and Start K3S
+  systemd:
+    name: k3s-agent
+    daemon_reload: yes
+    state: restarted
+    enabled: yes

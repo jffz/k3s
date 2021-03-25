@@ -1,0 +1,38 @@
+---
+- name: Test for Raspbian
+  stat:
+    path: /boot/cmdline.txt
+  register: cmdline
+
+- name: Activating cgroup
+  lineinfile:
+    path: /boot/cmdline.txt
+    regexp: '^(.*rootwait)$'
+    line: '\1 cgroup_enable=cpuset cgroup_memory=1 cgroup_enable=memory'
+    backrefs: true
+  when: 
+    - cmdline.stat.path is defined 
+  register: boot_cmdline
+
+- name: Set iptables to legacy-mode
+  community.general.alternatives:
+    name: "{{ item.name }}"
+    path: "{{ item.path }}"
+  loop:
+    - name: iptables
+      path: /usr/sbin/iptables-legacy
+    - name: ip6tables
+      path: /usr/sbin/ip6tables-legacy
+  register: alternatives
+
+- name: Disable swap
+  systemd:
+    name: dphys-swapfile
+    state: stopped
+    enabled: no
+  register: swap
+
+- name: Set reboot to true
+  set_fact:
+    reboot: "{{ boot_cmdline.changed or alternatives.changed or swap.changed }}"
+
